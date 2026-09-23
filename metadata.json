@@ -1,0 +1,6 @@
+{
+  "name": "NexusBlog - Enterprise NestJS + Payload CMS + Supabase Platform",
+  "description": "Production-grade tech publishing platform powered by NestJS API architecture, Payload CMS content management, and Supabase PostgreSQL with rich SEO, 301 redirects, WordPress migration, and an editorial frontend.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
