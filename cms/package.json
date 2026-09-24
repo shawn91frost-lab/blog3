@@ -1,0 +1,29 @@
+{
+  "name": "nexusblog-cms",
+  "description": "Payload CMS backend for NexusBlog with PostgreSQL",
+  "version": "1.0.0",
+  "main": "dist/server.js",
+  "license": "MIT",
+  "scripts": {
+    "dev": "cross-env TS_NODE_PROJECT=tsconfig.json tsx watch src/server.ts",
+    "build:payload": "cross-env PAYLOAD_CONFIG_PATH=src/payload.config.ts payload build",
+    "build:server": "tsc --project tsconfig.server.json",
+    "build": "npm run build:payload && npm run build:server",
+    "start": "cross-env NODE_ENV=production node dist/server.js",
+    "seed": "cross-env TS_NODE_PROJECT=tsconfig.json tsx src/seed.ts"
+  },
+  "dependencies": {
+    "@payloadcms/db-postgres": "^3.25.0",
+    "@payloadcms/richtext-lexical": "^3.25.0",
+    "cross-env": "^7.0.3",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "payload": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.3"
+  }
+}

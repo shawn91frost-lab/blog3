@@ -5,7 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
+    "dev:frontend": "tsx server.ts",
+    "dev:cms": "npm --prefix cms run dev",
+    "seed:cms": "npm --prefix cms run seed",
     "build": "vite build",
+    "build:frontend": "vite build",
+    "build:cms": "npm --prefix cms run build",
     "start": "node server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",

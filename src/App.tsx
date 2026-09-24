@@ -1,10 +1,12 @@
 /**
  * NexusBlog Application Root
- * Production-ready blogging platform built with NestJS + Payload CMS + Supabase architecture
+ * Production-ready blogging platform built with React 19 + Payload CMS + PostgreSQL architecture
  */
 
 import React, { useState, useEffect } from 'react';
 import { storage } from './lib/storage';
+import { getSiteSettings, getNavigation } from './api';
+import { SiteSettings } from './types/blog';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { SearchBar } from './components/SearchBar';
@@ -29,6 +31,30 @@ export default function App() {
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQueryParam, setSearchQueryParam] = useState('');
+  const [settings, setSettings] = useState<SiteSettings>(() => storage.getSettings());
+
+  // Fetch live site settings & navigation from Payload CMS
+  useEffect(() => {
+    let active = true;
+    getSiteSettings().then((liveSettings) => {
+      if (active && liveSettings) {
+        setSettings(liveSettings);
+      }
+    });
+
+    getNavigation('header').then((navItems) => {
+      if (active && navItems && navItems.length > 0) {
+        setSettings((prev) => ({
+          ...prev,
+          headerNav: navItems.map((n) => ({ label: n.label, url: n.url })),
+        }));
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Synchronize with window history
   useEffect(() => {
@@ -82,7 +108,6 @@ export default function App() {
   const categories = storage.getCategories();
   const tags = storage.getTags();
   const authors = storage.getAuthors();
-  const settings = storage.getSettings();
 
   // Route Resolver
   const renderView = () => {
@@ -133,24 +158,18 @@ export default function App() {
       return <SearchView initialQuery={searchQueryParam} onNavigate={navigate} />;
     }
 
-    if (currentRoute === '/about') {
-      return <PageView slug="about" onNavigate={navigate} />;
-    }
-
-    if (currentRoute === '/privacy-policy') {
-      return <PageView slug="privacy-policy" onNavigate={navigate} />;
-    }
-
-    if (currentRoute === '/terms') {
-      return <PageView slug="terms" onNavigate={navigate} />;
-    }
-
     if (currentRoute === '/contact') {
       return <ContactView onNavigate={navigate} />;
     }
 
     if (currentRoute.startsWith('/admin')) {
       return <AdminView onNavigate={navigate} />;
+    }
+
+    // Dynamic CMS Page Route (e.g. /about, /services, /privacy-policy, /terms, /any-slug)
+    const cleanSlug = currentRoute.replace(/^\/+|\/+$/g, '');
+    if (cleanSlug && !cleanSlug.includes('/')) {
+      return <PageView slug={cleanSlug} onNavigate={navigate} />;
     }
 
     // Default Fallback

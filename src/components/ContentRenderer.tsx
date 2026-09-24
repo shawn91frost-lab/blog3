@@ -1,23 +1,132 @@
 import React, { useState } from 'react';
 import { ContentBlock } from '../types/blog';
-import { Copy, Check, Info, AlertTriangle, Lightbulb, ExternalLink } from 'lucide-react';
+import { Copy, Check, Info, AlertTriangle, Lightbulb } from 'lucide-react';
 
 interface ContentRendererProps {
-  blocks: ContentBlock[];
+  blocks?: ContentBlock[] | any;
+  content?: string | any;
 }
 
-export const ContentRenderer: React.FC<ContentRendererProps> = ({ blocks }) => {
+/**
+ * Renders inline formatting (bold, italic, code, links) from markdown or Lexical inline nodes
+ */
+function renderFormattedText(text: string): React.ReactNode {
+  if (!text) return null;
+
+  // Simple safe parser for inline bold, italic, and links
+  const parts: React.ReactNode[] = [];
+  const regex = /(\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\))/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index));
+    }
+    const token = match[0];
+    if (token.startsWith('**') && token.endsWith('**')) {
+      parts.push(<strong key={match.index} className="font-semibold text-stone-950">{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith('*') && token.endsWith('*')) {
+      parts.push(<em key={match.index} className="italic">{token.slice(1, -1)}</em>);
+    } else if (token.startsWith('`') && token.endsWith('`')) {
+      parts.push(<code key={match.index} className="px-1.5 py-0.5 text-xs bg-stone-100 rounded text-amber-900 font-mono">{token.slice(1, -1)}</code>);
+    } else if (token.startsWith('[') && token.includes('](')) {
+      const label = token.substring(1, token.indexOf(']('));
+      const url = token.substring(token.indexOf('](') + 2, token.length - 1);
+      parts.push(
+        <a key={match.index} href={url} target="_blank" rel="noreferrer" className="text-amber-800 underline hover:text-amber-950">
+          {label}
+        </a>
+      );
+    }
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : text;
+}
+
+export const ContentRenderer: React.FC<ContentRendererProps> = ({ blocks, content }) => {
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
   const handleCopy = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedCodeId(id);
-    setTimeout(() => setCopiedCodeId(null), 2000);
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedCodeId(id);
+      setTimeout(() => setCopiedCodeId(null), 2000);
+    }
   };
+
+  // If simple text content was passed (e.g. from standard Pages or plain strings)
+  if (content && typeof content === 'string' && (!blocks || blocks.length === 0)) {
+    const paragraphs = content.split(/\n\n+/);
+    return (
+      <div className="prose prose-stone max-w-none space-y-6 text-stone-800 leading-relaxed font-sans">
+        {paragraphs.map((para, i) => {
+          const trimmed = para.trim();
+          if (trimmed.startsWith('# ')) {
+            return <h1 key={i} className="text-3xl sm:text-4xl font-bold font-editorial text-stone-950 pt-6 pb-2">{trimmed.slice(2)}</h1>;
+          }
+          if (trimmed.startsWith('## ')) {
+            return <h2 key={i} className="text-2xl sm:text-3xl font-bold font-editorial text-stone-950 pt-6 pb-2">{trimmed.slice(3)}</h2>;
+          }
+          if (trimmed.startsWith('### ')) {
+            return <h3 key={i} className="text-xl sm:text-2xl font-bold font-editorial text-stone-900 pt-4 pb-1">{trimmed.slice(4)}</h3>;
+          }
+          if (trimmed.startsWith('> ')) {
+            return (
+              <blockquote key={i} className="p-5 my-4 border-l-4 border-amber-800 bg-[#f7f5f0] rounded-r-xl italic font-editorial text-lg text-stone-900">
+                {trimmed.slice(2)}
+              </blockquote>
+            );
+          }
+          return (
+            <p key={i} className={`text-base sm:text-lg text-stone-700 leading-relaxed ${i === 0 ? 'first-letter:text-5xl first-letter:font-editorial first-letter:font-bold first-letter:float-left first-letter:mr-3 first-letter:text-stone-950' : ''}`}>
+              {renderFormattedText(trimmed)}
+            </p>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Handle Payload Lexical AST if passed directly
+  if (content && typeof content === 'object' && content.root?.children) {
+    return (
+      <div className="prose prose-stone max-w-none space-y-6 text-stone-800 leading-relaxed font-sans">
+        {content.root.children.map((node: any, idx: number) => {
+          const text = node.children?.map((c: any) => c.text || '').join('') || '';
+          if (node.type === 'heading') {
+            const headingTag = node.tag === 'h3' ? 'h3' : 'h2';
+            return headingTag === 'h3' ? (
+              <h3 key={idx} className="font-editorial font-bold text-xl sm:text-2xl text-stone-950 pt-6 pb-2">{text}</h3>
+            ) : (
+              <h2 key={idx} className="font-editorial font-bold text-2xl sm:text-3xl text-stone-950 pt-6 pb-2">{text}</h2>
+            );
+          }
+          if (node.type === 'quote') {
+            return (
+              <blockquote key={idx} className="p-5 my-4 border-l-4 border-amber-800 bg-[#f7f5f0] rounded-r-xl italic font-editorial text-lg text-stone-900">
+                {text}
+              </blockquote>
+            );
+          }
+          return <p key={idx} className="text-base sm:text-lg text-stone-700 leading-relaxed">{renderFormattedText(text)}</p>;
+        })}
+      </div>
+    );
+  }
+
+  if (!Array.isArray(blocks) || blocks.length === 0) {
+    return null;
+  }
 
   return (
     <div className="prose prose-stone max-w-none space-y-6 text-stone-800 leading-relaxed font-sans">
-      {blocks.map((block, index) => {
+      {blocks.map((block: ContentBlock, index: number) => {
         switch (block.type) {
           case 'heading': {
             const headingText = block.content || '';
@@ -60,7 +169,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({ blocks }) => {
                     : ''
                 }`}
               >
-                {block.content}
+                {renderFormattedText(block.content || '')}
               </p>
             );
           }
@@ -185,19 +294,6 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({ blocks }) => {
                   </figcaption>
                 )}
               </figure>
-            );
-
-          case 'embed':
-            return (
-              <div key={block.id || index} className="my-8 aspect-video rounded-xl overflow-hidden bg-stone-900 shadow-md">
-                <iframe
-                  src={block.embedUrl || 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ'}
-                  title="Video Embed"
-                  className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
             );
 
           case 'divider':
